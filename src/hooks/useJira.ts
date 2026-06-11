@@ -1,14 +1,15 @@
 // src/hooks/useJira.ts
-// Busca projetos e issues diretamente do Jira e mantém em memória (useState).
-// Nenhum dado é persistido — tudo some ao recarregar a página.
-
 import { useState, useEffect, useCallback } from 'react';
-import { getProjects, getIssues, type JiraProject, type JiraIssue } from '../services/jiraApi';
+import { getProjects, getIssues } from '../services/jiraApi';
+import type { JiraProject, JiraIssue } from '../services/jiraApi';
 
 export interface ProjectWithIssues extends JiraProject {
   issues: JiraIssue[];
-  progress: number;       // % de issues concluídas
-  blocked: number;        // issues com status "blocked" ou prioridade "highest"
+  progress: number;
+  blocked: number;
+  todo: number;
+  inProgress: number;
+  done: number;
 }
 
 export function useJira(isAuthenticated: boolean) {
@@ -27,17 +28,24 @@ export function useJira(isAuthenticated: boolean) {
       const withIssues = await Promise.all(
         rawProjects.map(async (project) => {
           const issues = await getIssues(project.key);
-          const done = issues.filter(
-            (i) => i.fields.status.statusCategory.key === 'done'
+
+          const todo       = issues.filter(i => i.fields.status.statusCategory.key === 'new').length;
+          const inProgress = issues.filter(i => i.fields.status.statusCategory.key === 'indeterminate').length;
+          const done       = issues.filter(i => i.fields.status.statusCategory.key === 'done').length;
+
+          // Impedimentos: prioridade Highest OU status com nome de bloqueio
+          const blocked = issues.filter(i =>
+            i.fields.priority.name === 'Highest' ||
+            i.fields.status.name.toLowerCase().includes('impediment') ||
+            i.fields.status.name.toLowerCase().includes('bloqueado') ||
+            i.fields.status.name.toLowerCase().includes('blocked')
           ).length;
-          const blocked = issues.filter(
-            (i) => i.fields.priority.name === 'Highest'
-          ).length;
+
           const progress = issues.length > 0
             ? Math.round((done / issues.length) * 100)
             : 0;
 
-          return { ...project, issues, progress, blocked };
+          return { ...project, issues, progress, blocked, todo, inProgress, done };
         })
       );
 
@@ -50,7 +58,6 @@ export function useJira(isAuthenticated: boolean) {
     }
   }, [isAuthenticated]);
 
-  // Busca ao autenticar e a cada 5 minutos
   useEffect(() => {
     sync();
     const interval = setInterval(sync, 5 * 60 * 1000);

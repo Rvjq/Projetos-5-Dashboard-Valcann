@@ -3,7 +3,8 @@ import { MetricsRow } from '../components/MetricsRow';
 import { ProjectCard } from '../components/ProjectCard';
 import { ImpedimentsList } from '../components/ImpedimentsList';
 import { KanbanBoard } from '../components/KanbanBoard';
-import type { ProjectWithIssues } from '../types';
+import { StatusPieChart } from '../components/StatusPieChart';
+import type { ProjectWithIssues } from '../hooks/useJira';
 
 interface Props {
   projects: ProjectWithIssues[];
@@ -14,14 +15,7 @@ interface Props {
   onSync: () => void;
 }
 
-export function Dashboard({
-  projects,
-  loading,
-  error,
-  activeProject,
-  onSelectProject,
-  onSync,
-}: Props) {
+export function Dashboard({ projects, loading, error, activeProject, onSelectProject, onSync }: Props) {
   if (loading && projects.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -39,10 +33,7 @@ export function Dashboard({
         <div className="text-center max-w-sm">
           <p className="text-sm font-medium text-gray-700 mb-1">Erro ao conectar ao Jira</p>
           <p className="text-xs text-gray-400 mb-4">{error}</p>
-          <button
-            onClick={onSync}
-            className="text-xs text-emerald-600 hover:text-emerald-700 underline"
-          >
+          <button onClick={onSync} className="text-xs text-emerald-600 hover:text-emerald-700 underline">
             Tentar novamente
           </button>
         </div>
@@ -50,7 +41,7 @@ export function Dashboard({
     );
   }
 
-  // Visão Kanban
+  // Kanban unificado
   if (activeProject === 'kanban') {
     return (
       <main className="flex-1 overflow-auto p-6">
@@ -61,11 +52,7 @@ export function Dashboard({
               {projects.reduce((a, p) => a + p.issues.length, 0)} tasks · todos os projetos
             </p>
           </div>
-          <button
-            onClick={onSync}
-            disabled={loading}
-            className="text-xs text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
-          >
+          <button onClick={onSync} disabled={loading} className="text-xs text-gray-400 hover:text-gray-600 disabled:opacity-50">
             {loading ? 'Atualizando…' : '↺ Sincronizar'}
           </button>
         </div>
@@ -75,7 +62,7 @@ export function Dashboard({
   }
 
   // Detalhe de projeto específico
-  if (activeProject && activeProject !== 'kanban') {
+  if (activeProject) {
     const project = projects.find((p) => p.key === activeProject);
     if (project) {
       return (
@@ -84,8 +71,11 @@ export function Dashboard({
             <img src={project.avatarUrls['48x48']} alt={project.name} className="w-8 h-8 rounded-lg" />
             <div>
               <h1 className="text-lg font-semibold text-gray-900">{project.name}</h1>
-              <p className="text-xs text-gray-400">{project.sprint?.name ?? 'Sem sprint'} · {project.issues.length} tasks</p>
+              <p className="text-xs text-gray-400">{project.issues.length} issues</p>
             </div>
+          </div>
+          <div className="mb-5">
+            <StatusPieChart projects={[project]} />
           </div>
           <KanbanBoard projects={[project]} />
         </main>
@@ -103,11 +93,7 @@ export function Dashboard({
             Valcann Cloud Intelligence · {projects.length} projetos ativos
           </p>
         </div>
-        <button
-          onClick={onSync}
-          disabled={loading}
-          className="text-xs text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
-        >
+        <button onClick={onSync} disabled={loading} className="text-xs text-gray-400 hover:text-gray-600 disabled:opacity-50">
           {loading ? 'Atualizando…' : '↺ Sincronizar'}
         </button>
       </div>
@@ -120,7 +106,11 @@ export function Dashboard({
         ))}
       </div>
 
-      <ImpedimentsList projects={projects} />
+      {/* Linha inferior: pizza + impedimentos lado a lado */}
+      <div className="grid grid-cols-2 gap-4">
+        <StatusPieChart projects={projects} />
+        <ImpedimentsList projects={projects} />
+      </div>
     </main>
   );
 }

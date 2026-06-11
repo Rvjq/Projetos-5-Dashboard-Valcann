@@ -1,15 +1,25 @@
 // src/components/ImpedimentsList.tsx
-import type { ProjectWithIssues } from '../types';
+import type { ProjectWithIssues } from '../hooks/useJira';
 
 interface Props {
   projects: ProjectWithIssues[];
 }
 
+function isImpediment(issue: ProjectWithIssues['issues'][0]): boolean {
+  const statusName = issue.fields.status.name.toLowerCase();
+  return (
+    issue.fields.priority.name === 'Highest' ||
+    statusName.includes('impediment') ||
+    statusName.includes('bloqueado') ||
+    statusName.includes('blocked')
+  );
+}
+
 export function ImpedimentsList({ projects }: Props) {
   const impediments = projects.flatMap((p) =>
     p.issues
-      .filter((i) => i.fields.priority.name === 'Highest')
-      .map((i) => ({ issue: i, projectName: p.name, projectKey: p.key }))
+      .filter(isImpediment)
+      .map((i) => ({ issue: i, projectName: p.name }))
   );
 
   if (impediments.length === 0) {
@@ -38,14 +48,14 @@ export function ImpedimentsList({ projects }: Props) {
             className="flex gap-3 items-start p-2.5 rounded-lg bg-red-50 border border-red-100"
           >
             <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <span className="text-red-500 text-[10px]">!</span>
+              <span className="text-red-500 text-[10px] font-bold">!</span>
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-gray-800 leading-tight truncate">
                 {issue.fields.summary}
               </p>
               <p className="text-[11px] text-gray-400 mt-0.5">
-                {projectName} · {issue.key}
+                {projectName} · {issue.key} · {issue.fields.status.name} · {issue.fields.priority.name}
               </p>
             </div>
             {issue.fields.assignee && (
